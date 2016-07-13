@@ -1,0 +1,7 @@
+# Logs
+logs
+*.log
+public
+node_modules
+.idea
+.DS_Store

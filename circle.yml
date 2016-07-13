@@ -1,0 +1,37 @@
+machine:
+    pre:
+        - curl -sSL https://s3.amazonaws.com/circle-downloads/install-circleci-docker.sh | bash -s -- 1.10.0
+    python:
+        version: 2.7.11
+    services:
+        - docker
+
+
+dependencies:
+    override:
+        - pip install docker-compose
+        - docker info
+        - docker login -e $DOCKER_HUB_EMAIL -u $DOCKER_HUB_USERNAME -p $DOCKER_HUB_PASSWORD
+        - docker build -t soosap/me .
+
+
+deployment:
+    production:
+        branch: master
+        commands:
+            - docker push soosap/me:latest
+            - echo export DOCKER_TLS_VERIFY=$(echo $DOCKER_TLS_VERIFY_INT) >> ~/.circlerc
+            - echo export DOCKER_HOST=$(echo $DOCKER_HOST_INT) >> ~/.circlerc
+            - echo export DOCKER_CERT_PATH=$(echo $DOCKER_CERT_PATH_INT) >> ~/.circlerc
+            - mkdir -p $DOCKER_CERT_PATH
+            - echo '-----BEGIN CERTIFICATE-----' >> ca.pem && echo $DOCKER_INT_CAPEM | sed -e 's/\s\+/\n/g' >> ca.pem && echo '-----END CERTIFICATE-----' >> ca.pem && touch $DOCKER_CERT_PATH/ca.pem && mv ca.pem $DOCKER_CERT_PATH/ca.pem
+            - echo '-----BEGIN CERTIFICATE-----' >> cert.pem && echo $DOCKER_INT_CERTPEM | sed -e 's/\s\+/\n/g' >> cert.pem && echo '-----END CERTIFICATE-----' >> cert.pem && touch $DOCKER_CERT_PATH/cert.pem && mv cert.pem $DOCKER_CERT_PATH/cert.pem
+            - echo '-----BEGIN RSA PRIVATE KEY-----' >> key.pem && echo $DOCKER_INT_KEYPEM | sed -e 's/\s\+/\n/g' >> key.pem && echo '-----END RSA PRIVATE KEY-----' >> key.pem && touch $DOCKER_CERT_PATH/key.pem && mv key.pem $DOCKER_CERT_PATH/key.pem
+            - echo '-----BEGIN RSA PRIVATE KEY-----' >> server-key.pem && echo $DOCKER_INT_SERVERKEYPEM | sed -e 's/\s\+/\n/g' >> server-key.pem && echo '-----END RSA PRIVATE KEY-----' >> server-key.pem && touch $DOCKER_CERT_PATH/server-key.pem && mv server-key.pem $DOCKER_CERT_PATH/server-key.pem
+            - echo '-----BEGIN CERTIFICATE----- ' >> server.pem && echo $DOCKER_INT_SERVERPEM | sed -e 's/\s\+/\n/g' >> server.pem && echo '-----END CERTIFICATE-----' >> server.pem && touch $DOCKER_CERT_PATH/server.pem && mv server.pem $DOCKER_CERT_PATH/server.pem
+            - echo '-----BEGIN RSA PRIVATE KEY-----' >> id_rsa && echo $DOCKER_INT_IDRSA | sed -e 's/\s\+/\n/g' >> id_rsa && echo '-----END RSA PRIVATE KEY-----' >> id_rsa && touch $DOCKER_CERT_PATH/id_rsa && mv id_rsa $DOCKER_CERT_PATH/id_rsa
+            - echo $DOCKER_INT_IDRSAPUB > id_rsa.pub && mv id_rsa.pub $DOCKER_CERT_PATH/id_rsa.pub
+            - docker pull soosap/me:latest
+            - git clone git@github.com:saronia/saronia-compose.git
+            - docker-compose -f saronia-compose/integration/docker-compose.yml up -d
+            - docker images --no-trunc | grep none | awk '{print $3}' | xargs docker rmi
